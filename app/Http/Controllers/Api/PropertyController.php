@@ -4,14 +4,31 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Property;
+use Cloudinary\Cloudinary;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
 class PropertyController extends Controller
 {
+    private Cloudinary $cloudinary;
+
+    public function __construct()
+    {
+        $this->cloudinary = new Cloudinary([
+            'cloud' => [
+                'cloud_name' => env('CLOUDINARY_CLOUD_NAME'),
+                'api_key' => env('CLOUDINARY_API_KEY'),
+                'api_secret' => env('CLOUDINARY_API_SECRET'),
+            ],
+            'url' => [
+                'secure' => true,
+            ],
+        ]);
+    }
+
     public function index(): JsonResponse
     {
-        return response()->json(Property::all());
+        return response()->json(Property::latest()->get());
     }
 
     public function store(Request $request): JsonResponse
@@ -27,8 +44,17 @@ class PropertyController extends Controller
         $imageUrl = null;
 
         if ($request->hasFile('image')) {
-            $path = $request->file('image')->store('properties', 'public');
-            $imageUrl = asset('storage/' . $path);
+
+            $uploadResult = $this->cloudinary
+                ->uploadApi()
+                ->upload(
+                    $request->file('image')->getRealPath(),
+                    [
+                        'folder' => 'omasync/properties',
+                    ]
+                );
+
+            $imageUrl = $uploadResult['secure_url'] ?? null;
         }
 
         $property = Property::create([
@@ -41,7 +67,7 @@ class PropertyController extends Controller
 
         return response()->json([
             'message' => 'Property created successfully',
-            'data' => $property
+            'data' => $property,
         ], 201);
     }
 
@@ -66,8 +92,17 @@ class PropertyController extends Controller
         $imageUrl = $property->image_url;
 
         if ($request->hasFile('image')) {
-            $path = $request->file('image')->store('properties', 'public');
-            $imageUrl = asset('storage/' . $path);
+
+            $uploadResult = $this->cloudinary
+                ->uploadApi()
+                ->upload(
+                    $request->file('image')->getRealPath(),
+                    [
+                        'folder' => 'omasync/properties',
+                    ]
+                );
+
+            $imageUrl = $uploadResult['secure_url'] ?? $imageUrl;
         }
 
         $property->update([
@@ -80,7 +115,7 @@ class PropertyController extends Controller
 
         return response()->json([
             'message' => 'Property updated successfully',
-            'data' => $property
+            'data' => $property,
         ]);
     }
 
