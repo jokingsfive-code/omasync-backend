@@ -3,59 +3,40 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\HousekeepingRequest;
-use App\Services\HousekeepingService;
-use Illuminate\Http\JsonResponse;
+use App\Models\HousekeepingTask;
 use Illuminate\Http\Request;
 
 class HousekeepingController extends Controller
 {
-    protected HousekeepingService $housekeepingService;
-
-    public function __construct(HousekeepingService $housekeepingService)
+    public function index()
     {
-        $this->housekeepingService = $housekeepingService;
+        return HousekeepingTask::with('property')
+            ->latest()
+            ->get();
     }
 
-    public function index(Request $request): JsonResponse
+    public function store(Request $request)
     {
-        $tasks = $this->housekeepingService->getAllTasks($request->all());
-        return response()->json($tasks);
+        return HousekeepingTask::create(
+            $request->all()
+        );
     }
 
-    public function store(HousekeepingRequest $request): JsonResponse
+    public function update(Request $request, $id)
     {
-        $task = $this->housekeepingService->createTask($request->validated());
-        return response()->json($task, 201);
+        $task = HousekeepingTask::findOrFail($id);
+
+        $task->update($request->all());
+
+        return $task;
     }
 
-    public function show(int $id): JsonResponse
+    public function destroy($id)
     {
-        $task = $this->housekeepingService->getTaskById($id);
-        return response()->json($task);
-    }
+        HousekeepingTask::findOrFail($id)->delete();
 
-    public function update(HousekeepingRequest $request, int $id): JsonResponse
-    {
-        $task = $this->housekeepingService->updateTask($id, $request->validated());
-        return response()->json($task);
-    }
-
-    public function destroy(int $id): JsonResponse
-    {
-        $this->housekeepingService->deleteTask($id);
-        return response()->json(null, 204);
-    }
-
-    public function start(int $id): JsonResponse
-    {
-        $task = $this->housekeepingService->startTask($id);
-        return response()->json($task);
-    }
-
-    public function complete(int $id): JsonResponse
-    {
-        $task = $this->housekeepingService->completeTask($id);
-        return response()->json($task);
+        return response()->json([
+            'message' => 'Deleted'
+        ]);
     }
 }

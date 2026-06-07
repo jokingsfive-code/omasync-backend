@@ -21,9 +21,23 @@ class PropertyController extends Controller
             'location' => 'required|string|max:255',
             'price' => 'nullable|numeric',
             'description' => 'nullable|string',
+            'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
         ]);
 
-        $property = Property::create($validated);
+        $imageUrl = null;
+
+        if ($request->hasFile('image')) {
+            $path = $request->file('image')->store('properties', 'public');
+            $imageUrl = asset('storage/' . $path);
+        }
+
+        $property = Property::create([
+            'name' => $validated['name'],
+            'location' => $validated['location'],
+            'price' => $validated['price'] ?? null,
+            'description' => $validated['description'] ?? null,
+            'image_url' => $imageUrl,
+        ]);
 
         return response()->json([
             'message' => 'Property created successfully',
@@ -46,9 +60,23 @@ class PropertyController extends Controller
             'location' => 'required|string|max:255',
             'price' => 'nullable|numeric',
             'description' => 'nullable|string',
+            'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
         ]);
 
-        $property->update($validated);
+        $imageUrl = $property->image_url;
+
+        if ($request->hasFile('image')) {
+            $path = $request->file('image')->store('properties', 'public');
+            $imageUrl = asset('storage/' . $path);
+        }
+
+        $property->update([
+            'name' => $validated['name'],
+            'location' => $validated['location'],
+            'price' => $validated['price'] ?? null,
+            'description' => $validated['description'] ?? null,
+            'image_url' => $imageUrl,
+        ]);
 
         return response()->json([
             'message' => 'Property updated successfully',

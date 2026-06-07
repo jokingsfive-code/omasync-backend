@@ -3,59 +3,166 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\ReservationRequest;
-use App\Services\ReservationService;
-use Illuminate\Http\JsonResponse;
+use App\Models\Reservation;
+use App\Models\HousekeepingTask;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 
 class ReservationController extends Controller
 {
-    protected ReservationService $reservationService;
-
-    public function __construct(ReservationService $reservationService)
+    public function index(): JsonResponse
     {
-        $this->reservationService = $reservationService;
+        return response()->json(
+            Reservation::orderBy('check_in', 'asc')->get()
+        );
     }
 
-    public function index(Request $request): JsonResponse
+    public function store(Request $request): JsonResponse
     {
-        $reservations = $this->reservationService->getAllReservations($request->all());
-        return response()->json($reservations);
+        $validated = $request->validate([
+            'property_id' => 'required|exists:properties,id',
+            'guest_name' => 'required|string|max:255',
+            'channel' => 'required|string|max:255',
+            'check_in' => 'required|date',
+            'check_out' => 'required|date|after:check_in',
+            'total_price' => 'nullable|numeric',
+            'status' => 'nullable|string|max:255',
+            'notes' => 'nullable|string',
+        ]);
+
+        $overlap = Reservation::where('property_id', $validated['property_id'])
+            ->where('status', '!=', 'Cancelled')
+            ->where(function ($query) use ($validated) {
+                $query->where('check_in', '<', $validated['check_out'])
+                    ->where('check_out', '>', $validated['check_in']);
+            })
+            ->exists();
+
+        if ($overlap) {
+            return response()->json([
+                'message' => 'This date is fully booked for the selected property.'
+            ], 422);
+        }
+
+        $reservation = Reservation::create([
+            'property_id' => $validated['property_id'],
+            'guest_name' => $validated['guest_name'],
+            'channel' => $validated['channel'],
+            'check_in' => $validated['check_in'],
+            'check_out' => $validated['check_out'],
+            'total_price' => $validated['total_price'] ?? 0,
+            'status' => $validated['status'] ?? 'Confirmed',
+            'notes' => $validated['notes'] ?? null,
+        ]);
+
+        $this->createHousekeepingTaskIfCheckedOut($reservation);
+
+        return response()->json([
+            'message' => 'Reservation created successfully',
+            'data' => $reservation
+        ], 201);
     }
 
-    public function store(ReservationRequest $request): JsonResponse
+    public function update(Request $request, $id): JsonResponse
     {
-        $reservation = $this->reservationService->createReservation($request->validated());
-        return response()->json($reservation, 201);
+        $reservation = Reservation::find($id);
+
+        if (!$reservation) {
+            return response()->json([
+                'message' => 'Reservation not found'
+            ], 404);
+        }
+
+        $validated = $request->validate([
+            'property_id' => 'required|exists:properties,id',
+            'guest_name' => 'required|string|max:255',
+            'channel' => 'required|string|max:255',
+            'check_in' => 'required|date',
+            'check_out' => 'required|date|after:check_in',
+            'total_price' => 'nullable|numeric',
+            'status' => 'nullable|string|max:255',
+            'notes' => 'nullable|string',
+        ]);
+
+        $overlap = Reservation::where('property_id', $validated['property_id'])
+            ->where('id', '!=', $id)
+            ->where('status', '!=', 'Cancelled')
+            ->where(function ($query) use ($validated) {
+                $query->where('check_in', '<', $validated['check_out'])
+                    ->where('check_out', '>', $validated['check_in']);
+            })
+            ->exists();
+
+        if ($overlap) {
+            return response()->json([
+                'message' => 'This date is fully booked for the selected property.'
+            ], 422);
+        }
+
+        $reservation->update([
+            'property_id' => $validated['property_id'],
+            'guest_name' => $validated['guest_name'],
+            'channel' => $validated['channel'],
+            'check_in' => $validated['check_in'],
+            'check_out' => $validated['check_out'],
+            'total_price' => $validated['total_price'] ?? 0,
+            'status' => $validated['status'] ?? 'Confirmed',
+            'notes' => $validated['notes'] ?? null,
+        ]);
+
+        $this->createHousekeepingTaskIfCheckedOut($reservation);
+
+        return response()->json([
+            'message' => 'Reservation updated successfully',
+            'data' => $reservation
+        ]);
     }
 
-    public function show(int $id): JsonResponse
+    public function destroy($id): JsonResponse
     {
-        $reservation = $this->reservationService->getReservationById($id);
-        return response()->json($reservation);
+        $reservation = Reservation::find($id);
+
+        if (!$reservation) {
+            return response()->json([
+                'message' => 'Reservation not found'
+            ], 404);
+        }
+
+        HousekeepingTask::where('reservation_id', $reservation->id)->delete();
+
+        $reservation->delete();
+
+        return response()->json([
+            'message' => 'Reservation deleted successfully'
+        ]);
     }
 
-    public function update(ReservationRequest $request, int $id): JsonResponse
+    private function createHousekeepingTaskIfCheckedOut(Reservation $reservation): void
     {
-        $reservation = $this->reservationService->updateReservation($id, $request->validated());
-        return response()->json($reservation);
-    }
+        if ($reservation->status !== 'Checked Out') {
+            return;
+        }
 
-    public function destroy(int $id): JsonResponse
-    {
-        $this->reservationService->deleteReservation($id);
-        return response()->json(null, 204);
-    }
+        $existingTask = HousekeepingTask::where('reservation_id', $reservation->id)
+            ->first();
 
-    public function confirm(int $id): JsonResponse
-    {
-        $reservation = $this->reservationService->confirmReservation($id);
-        return response()->json($reservation);
-    }
+        if ($existingTask) {
+            $existingTask->update([
+                'property_id' => $reservation->property_id,
+                'guest_name' => $reservation->guest_name,
+                'checkout_date' => $reservation->check_out,
+            ]);
 
-    public function cancel(int $id, Request $request): JsonResponse
-    {
-        $reservation = $this->reservationService->cancelReservation($id, $request->input('reason'));
-        return response()->json($reservation);
+            return;
+        }
+
+        HousekeepingTask::create([
+            'reservation_id' => $reservation->id,
+            'property_id' => $reservation->property_id,
+            'guest_name' => $reservation->guest_name,
+            'checkout_date' => $reservation->check_out,
+            'status' => 'Pending',
+            'notes' => 'Auto-created after guest checkout.',
+        ]);
     }
 }
