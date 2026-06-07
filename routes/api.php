@@ -12,8 +12,13 @@ use App\Http\Controllers\Api\HousekeepingController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\MaintenanceTicketController;
 use App\Http\Controllers\Api\InvoiceController;
+use App\Http\Controllers\Api\UserController;
 
 Route::post('/login', [AuthController::class, 'login']);
+
+Route::get('/users', [UserController::class, 'index']);
+Route::post('/users', [UserController::class, 'store']);
+Route::delete('/users/{id}', [UserController::class, 'destroy']);
 
 /*
 |--------------------------------------------------------------------------
