@@ -41,7 +41,7 @@ class ReportController extends Controller
         $bookingCount = $reservations->count();
         $adr = $bookingCount > 0 ? $revenue / $bookingCount : 0;
 
-        $daysInMonth = cal_days_in_month(CAL_GREGORIAN, $month, $year);
+        $daysInMonth = date('t', strtotime("$year-$month-01"));
         $propertyCount = $propertyId && $propertyId !== 'all' ? 1 : max($properties->count(), 1);
         $availableNights = $daysInMonth * $propertyCount;
 
