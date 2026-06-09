@@ -124,8 +124,6 @@ class CalendarSourceController extends Controller
                 ], 422);
             }
 
-            $icalContent = $response->body();
-
             $ical = new ICal(false, [
                 'defaultSpan' => 2,
                 'defaultTimeZone' => 'Asia/Kuala_Lumpur',
@@ -133,7 +131,7 @@ class CalendarSourceController extends Controller
                 'skipRecurrence' => true,
             ]);
 
-            $ical->initString($icalContent);
+            $ical->initString($response->body());
             $events = $ical->events();
 
             $created = 0;
@@ -151,11 +149,6 @@ class CalendarSourceController extends Controller
                     continue;
                 }
 
-                if (strtolower(trim($source->channel)) === 'agoda') {
-                    $checkIn = Carbon::parse($checkIn)->subDay()->format('Y-m-d');
-                    $checkOut = Carbon::parse($checkOut)->subDay()->format('Y-m-d');
-                }
-
                 if ($checkIn < '2000-01-01' || $checkOut < '2000-01-01') {
                     $skippedInvalidDate++;
                     continue;
@@ -168,7 +161,6 @@ class CalendarSourceController extends Controller
 
                 $uid = $event->uid ?? md5(($event->summary ?? '') . $checkIn . $checkOut);
                 $summary = $event->summary ?? 'Imported Booking';
-
                 $guestName = $this->cleanGuestName($summary, $source->channel);
 
                 $existing = Reservation::where('notes', 'like', '%ICS UID: ' . $uid . '%')
@@ -240,11 +232,7 @@ class CalendarSourceController extends Controller
 
         try {
             if (is_array($value)) {
-                if (isset($value[2])) {
-                    return $this->formatIcalDate($value[2]);
-                }
-
-                return null;
+                return isset($value[2]) ? $this->formatIcalDate($value[2]) : null;
             }
 
             if ($value instanceof \DateTimeInterface) {
@@ -259,7 +247,6 @@ class CalendarSourceController extends Controller
 
             if (preg_match('/^(\d{8})T\d{6}Z?$/', $value, $matches)) {
                 $date = $matches[1];
-
                 return substr($date, 0, 4) . '-' . substr($date, 4, 2) . '-' . substr($date, 6, 2);
             }
 
