@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\MaintenanceTicketController;
 use App\Http\Controllers\Api\InvoiceController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\IcalExportController;
 
 Route::post('/login', [AuthController::class, 'login']);
 
@@ -106,3 +107,5 @@ Route::put('/maintenance-tickets/{id}', [MaintenanceTicketController::class, 'up
 Route::delete('/maintenance-tickets/{id}', [MaintenanceTicketController::class, 'destroy']);
 
 Route::get('/invoices/reservations/{reservationId}/download', [InvoiceController::class, 'download']);
+
+Route::get('/ical/export/{propertyId}', [IcalExportController::class, 'export']);
