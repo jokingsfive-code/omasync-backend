@@ -49,8 +49,11 @@ class IcalExportController extends Controller
         $calendar .= "END:VCALENDAR\r\n";
 
         return response($calendar, 200)
-            ->header('Content-Type', 'text/calendar; charset=utf-8')
-            ->header('Content-Disposition', 'inline; filename="omasync-property-' . $propertyId . '.ics"');
+    ->header('Content-Type', 'text/calendar')
+    ->header('Content-Disposition', 'attachment; filename="calendar.ics"')
+    ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+    ->header('Pragma', 'no-cache')
+    ->header('Expires', '0');
     }
 
     private function escapeText($text)
