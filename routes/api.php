@@ -110,3 +110,5 @@ Route::get('/invoices/reservations/{reservationId}/download', [InvoiceController
 
 Route::get('/ical/export/{propertyId}', [IcalExportController::class, 'export']);
 Route::get('/ical/export/{propertyId}.ics', [IcalExportController::class, 'export']);
+
+Route::get('/calendar/{propertyId}.ics', [IcalExportController::class, 'export']);
