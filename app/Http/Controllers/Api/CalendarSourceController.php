@@ -151,6 +151,11 @@ class CalendarSourceController extends Controller
                     continue;
                 }
 
+                if (strtolower(trim($source->channel)) === 'agoda') {
+                    $checkIn = Carbon::parse($checkIn)->subDay()->format('Y-m-d');
+                    $checkOut = Carbon::parse($checkOut)->subDay()->format('Y-m-d');
+                }
+
                 if ($checkIn < '2000-01-01' || $checkOut < '2000-01-01') {
                     $skippedInvalidDate++;
                     continue;
@@ -234,10 +239,6 @@ class CalendarSourceController extends Controller
         }
 
         try {
-            if ($value instanceof \DateTimeInterface) {
-                return Carbon::instance($value)->format('Y-m-d');
-            }
-
             if (is_array($value)) {
                 if (isset($value[2])) {
                     return $this->formatIcalDate($value[2]);
@@ -246,14 +247,20 @@ class CalendarSourceController extends Controller
                 return null;
             }
 
+            if ($value instanceof \DateTimeInterface) {
+                return $value->format('Y-m-d');
+            }
+
             $value = trim((string) $value);
 
             if (preg_match('/^\d{8}$/', $value)) {
-                return Carbon::createFromFormat('Ymd', $value)->format('Y-m-d');
+                return substr($value, 0, 4) . '-' . substr($value, 4, 2) . '-' . substr($value, 6, 2);
             }
 
-            if (preg_match('/^\d{8}T\d{6}Z?$/', $value)) {
-                return Carbon::parse($value)->format('Y-m-d');
+            if (preg_match('/^(\d{8})T\d{6}Z?$/', $value, $matches)) {
+                $date = $matches[1];
+
+                return substr($date, 0, 4) . '-' . substr($date, 4, 2) . '-' . substr($date, 6, 2);
             }
 
             if (is_numeric($value)) {
