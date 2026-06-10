@@ -149,6 +149,11 @@ class CalendarSourceController extends Controller
                     continue;
                 }
 
+                if (strtolower(trim($source->channel)) === 'agoda') {
+                    $checkIn = Carbon::parse($checkIn)->addDay()->format('Y-m-d');
+                    $checkOut = Carbon::parse($checkOut)->addDay()->format('Y-m-d');
+                }
+
                 if ($checkIn < '2000-01-01' || $checkOut < '2000-01-01') {
                     $skippedInvalidDate++;
                     continue;
@@ -247,6 +252,7 @@ class CalendarSourceController extends Controller
 
             if (preg_match('/^(\d{8})T\d{6}Z?$/', $value, $matches)) {
                 $date = $matches[1];
+
                 return substr($date, 0, 4) . '-' . substr($date, 4, 2) . '-' . substr($date, 6, 2);
             }
 
